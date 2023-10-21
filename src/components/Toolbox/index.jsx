@@ -11,7 +11,7 @@ import { MENU_ITEMS } from "@/constants/menu-items";
 const Toolbox = () => {
   const dispatch = useDispatch();
   const activeMenuItem = useSelector((state) => state.menu.activeMenuItem);
-  const { color: activeColor } = useSelector(
+  const { color: activeColor, size } = useSelector(
     (state) => state.toolbox[activeMenuItem]
   );
   const showStrokeColor = activeMenuItem === MENU_ITEMS.PENCIL;
@@ -102,6 +102,7 @@ const Toolbox = () => {
               max={10}
               step={1}
               onChange={(e) => updateBrushSize(e.target.value)}
+              value={size}
             />
           </div>
         </div>
