@@ -93,7 +93,7 @@ const Toolbox = () => {
       )}
       {showBrush && (
         <div className={styles.toolContainer}>
-          <h4 className={styles.toolLabel}>Brush Size {activeMenuItem}</h4>
+          <h4 className={styles.toolLabel}>Brush Size</h4>
           <div className={styles.tool}>
             <input type="range" min={1} max={10} step={1} onChange={(e) => updateBrushSize(e.target.value)} value={size} />
           </div>
