@@ -5,15 +5,24 @@ import { MENU_ITEMS } from "@/constants/menu-items";
 const initialState = {
   [MENU_ITEMS.PENCIL]: {
     color: COLORS.BLACK,
-    size: 3,
+    size: 1,
+  },
+  [MENU_ITEMS.LINE]: {
+    color: COLORS.BLACK,
+    size: 1,
+  },
+  [MENU_ITEMS.RECTANGLE]: {
+    color: COLORS.BLACK,
+    size: 1,
   },
   [MENU_ITEMS.ERASER]: {
     color: COLORS.WHITE,
-    size: 3,
+    size: 1,
   },
   [MENU_ITEMS.UNDO]: {},
   [MENU_ITEMS.REDO]: {},
   [MENU_ITEMS.DOWNLOAD]: {},
+  [MENU_ITEMS.RESET]: {},
 };
 
 export const toolboxSlice = createSlice({

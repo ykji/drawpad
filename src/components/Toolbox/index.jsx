@@ -13,8 +13,8 @@ const Toolbox = () => {
   const dispatch = useDispatch();
   const activeMenuItem = useSelector((state) => state.menu.activeMenuItem);
   const { color: activeColor, size } = useSelector((state) => state.toolbox[activeMenuItem]);
-  const showStrokeColor = activeMenuItem === MENU_ITEMS.PENCIL;
-  const showBrush = activeMenuItem === MENU_ITEMS.PENCIL || activeMenuItem === MENU_ITEMS.ERASER;
+  const showStrokeColor = activeMenuItem === MENU_ITEMS.PENCIL || activeMenuItem === MENU_ITEMS.LINE || activeMenuItem === MENU_ITEMS.RECTANGLE;
+  const showBrush = showStrokeColor || activeMenuItem === MENU_ITEMS.ERASER;
 
   const updateBrushSize = (size) => {
     dispatch(changeBrushSize({ item: activeMenuItem, size }));
