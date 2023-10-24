@@ -1,27 +1,74 @@
 import { useDispatch, useSelector } from "react-redux";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import rough from "roughjs";
 
 import { socket } from "@/socket";
 
 import { MENU_ITEMS } from "@/constants/menu-items";
 import { actionItemClick } from "@/slice/menuSlice";
 
+const roughGenerator = rough.generator();
+
 const Board = () => {
-  const canvasRef = useRef(null);
-  const shouldDraw = useRef(false);
-  const drawHistory = useRef([]);
-  const historyPointer = useRef(0);
   const dispatch = useDispatch();
   const { activeMenuItem, actionMenuItem } = useSelector((state) => state.menu);
   const { color, size } = useSelector((state) => state.toolbox[activeMenuItem]);
 
+  const canvasRef = useRef(null);
+  const ctxRef = useRef(null);
+
+  const [history, setHistory] = useState([]);
+  const [elements, setElements] = useState([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const handleResetCanvas = (emitEvent) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setElements([]);
+
+    if (emitEvent) {
+      socket.emit("reset");
+    }
+  };
+
+  const handleUndo = () => {
+    if (elements.length) {
+      let updatedElements = [];
+      const updatedHistory = [...history, elements[elements.length - 1]];
+      setHistory(updatedHistory);
+
+      if (elements.length === 1) {
+        handleResetCanvas(false);
+        setElements([]);
+      } else {
+        updatedElements = elements.slice(0, elements.length - 1);
+        setElements(updatedElements);
+      }
+
+      socket.emit("addPath", { elements: updatedElements, history: updatedHistory });
+    }
+  };
+
+  const handleRedo = () => {
+    if (history.length) {
+      const updatedElements = [...elements, history[history.length - 1]];
+      const updatedHistory = history.slice(0, history.length - 1);
+      setElements(updatedElements);
+      setHistory(updatedHistory);
+      socket.emit("addPath", { elements: updatedElements, history: updatedHistory });
+    }
+  };
+
   useEffect(() => {
+    // to handle action items
     if (!canvasRef.current) {
       return;
     }
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
 
     if (actionMenuItem === MENU_ITEMS.DOWNLOAD) {
       const URL = canvas.toDataURL();
@@ -29,22 +76,19 @@ const Board = () => {
       anchor.href = URL;
       anchor.download = "sketch-from-drawpad.png";
       anchor.click();
-    } else if (actionMenuItem === MENU_ITEMS.UNDO || actionMenuItem === MENU_ITEMS.REDO) {
-      if (historyPointer.current > 0 && actionMenuItem === MENU_ITEMS.UNDO) {
-        historyPointer.current -= 1;
-        console.log(historyPointer.current);
-      }
-      if (historyPointer.current < drawHistory.current.length - 1 && actionMenuItem === MENU_ITEMS.REDO) {
-        historyPointer.current += 1;
-      }
-      const imageData = drawHistory.current[historyPointer.current];
-      ctx.putImageData(imageData, 0, 0);
+    } else if (actionMenuItem === MENU_ITEMS.UNDO) {
+      handleUndo();
+    } else if (actionMenuItem === MENU_ITEMS.REDO) {
+      handleRedo();
+    } else if (actionMenuItem === MENU_ITEMS.RESET) {
+      handleResetCanvas(true);
     }
 
     dispatch(actionItemClick(null));
-  }, [actionMenuItem, dispatch]);
+  }, [actionMenuItem]);
 
   useEffect(() => {
+    // to handle config - stroke color and width
     if (!canvasRef.current) {
       return;
     }
@@ -70,88 +114,160 @@ const Board = () => {
     };
   }, [color, size]);
 
-  useLayoutEffect(() => {
-    if (!canvasRef.current) {
-      return;
-    }
-
+  useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    const ctx = canvas.getContext("2d");
 
-    const beginPath = (x, y) => {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
+    ctxRef.current = ctx;
+
+    const handleAddPath = (paths) => {
+      setHistory(paths.history);
+      setElements(paths.elements);
     };
 
-    const drawLine = (x, y) => {
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    };
-
-    const handleMouseDown = (e) => {
-      shouldDraw.current = true;
-      beginPath(e.clientX, e.clientY);
-      socket.emit("beginPath", { x: e.clientX, y: e.clientY });
-
-      // if (historyPointer.current < drawHistory.current.length) {
-      //   console.log(
-      //     "handl donw",
-      //     historyPointer.current,
-      //     drawHistory.current.length
-      //   );
-      //   drawHistory.current = drawHistory.current.slice(
-      //     0,
-      //     historyPointer.current
-      //   );
-      // }
-    };
-
-    const handleMouseMove = (e) => {
-      if (shouldDraw.current) {
-        drawLine(e.clientX, e.clientY);
-        socket.emit("drawLine", { x: e.clientX, y: e.clientY });
-      }
-    };
-
-    const handleMouseUp = (e) => {
-      shouldDraw.current = false;
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      drawHistory.current.push(imageData);
-      historyPointer.current = drawHistory.current.length - 1;
-    };
-
-    const handleBeginPath = (path) => {
-      beginPath(path.x, path.y);
-    };
-
-    const handleDrawLine = (path) => {
-      drawLine(path.x, path.y);
-    };
-
-    canvas.addEventListener("mousedown", handleMouseDown);
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseup", handleMouseUp);
-
-    socket.on("beginPath", handleBeginPath);
-    socket.on("drawLine", handleDrawLine);
+    socket.on("addPath", handleAddPath);
+    socket.on("reset", handleResetCanvas);
 
     return () => {
-      canvas.removeEventListener("mousedown", handleMouseDown);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mouseup", handleMouseUp);
-
-      socket.off("beginPath", handleBeginPath);
-      socket.off("drawLine", handleDrawLine);
+      socket.off("addPath", handleAddPath);
+      socket.off("reset", handleResetCanvas);
     };
   }, []);
 
-  // console.log("historyPointer.current->", historyPointer.current);
-  // console.log("drawHistory.current->", drawHistory.current.length);
+  const drawPath = (elements) => {
+    const roughCanvas = rough.canvas(canvasRef.current);
 
-  return <canvas ref={canvasRef}></canvas>;
+    elements.forEach(({ path, type, offsetX, offsetY, width, height, stroke, strokeWidth }) => {
+      if (type === MENU_ITEMS.PENCIL) {
+        roughCanvas.linearPath(path, {
+          stroke,
+          strokeWidth,
+          roughness: 0,
+        });
+      } else if (type === MENU_ITEMS.LINE) {
+        roughCanvas.draw(roughGenerator.line(offsetX, offsetY, width, height, { stroke, roughness: 0, strokeWidth }));
+      } else if (type === MENU_ITEMS.RECTANGLE) {
+        roughCanvas.draw(roughGenerator.rectangle(offsetX, offsetY, width, height, { stroke, roughness: 0, strokeWidth }));
+      }
+    });
+  };
+
+  useLayoutEffect(() => {
+    const roughCanvas = rough.canvas(canvasRef.current);
+
+    if (elements.length && canvasRef.current) {
+      ctxRef.current?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+
+    if (elements.length) {
+      drawPath(elements);
+    }
+  }, [elements]);
+
+  const clearHistory = () => {
+    setHistory([]);
+  };
+
+  const handleMouseDown = (e) => {
+    setIsDrawing(true);
+    clearHistory();
+    const { offsetX, offsetY } = e.nativeEvent;
+
+    if (activeMenuItem === MENU_ITEMS.PENCIL || activeMenuItem === MENU_ITEMS.ERASER) {
+      setElements((prev) => {
+        return [
+          ...prev,
+          {
+            type: MENU_ITEMS.PENCIL,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            path: [[offsetX, offsetY]],
+            stroke: ctxRef.current.strokeStyle,
+            strokeWidth: ctxRef.current.lineWidth,
+          },
+        ];
+      });
+    } else if (activeMenuItem === MENU_ITEMS.LINE) {
+      setElements((prev) => [
+        ...prev,
+        {
+          type: MENU_ITEMS.LINE,
+          offsetX: offsetX,
+          offsetY: offsetY,
+          width: offsetX,
+          height: offsetY,
+          stroke: ctxRef.current.strokeStyle,
+          strokeWidth: ctxRef.current.lineWidth,
+        },
+      ]);
+    } else if (activeMenuItem === MENU_ITEMS.RECTANGLE) {
+      setElements((prev) => [
+        ...prev,
+        {
+          type: MENU_ITEMS.RECTANGLE,
+          offsetX: offsetX,
+          offsetY: offsetY,
+          width: 0,
+          height: 0,
+          stroke: ctxRef.current.strokeStyle,
+          strokeWidth: ctxRef.current.lineWidth,
+        },
+      ]);
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    const { offsetX, offsetY } = e.nativeEvent;
+    if (isDrawing) {
+      if (activeMenuItem === MENU_ITEMS.PENCIL || activeMenuItem === MENU_ITEMS.ERASER) {
+        const { path } = elements[elements.length - 1];
+        const newPath = [...path, [offsetX, offsetY]];
+
+        setElements((prev) =>
+          prev.map((element, index) => {
+            if (index === elements.length - 1) {
+              return { ...element, path: newPath };
+            } else {
+              return element;
+            }
+          })
+        );
+      } else if (activeMenuItem === MENU_ITEMS.LINE) {
+        setElements((prev) => {
+          return prev.map((element, index) => {
+            if (index === elements.length - 1) {
+              return { ...element, width: offsetX, height: offsetY };
+            } else {
+              return element;
+            }
+          });
+        });
+      } else if (activeMenuItem === MENU_ITEMS.RECTANGLE) {
+        setElements((prev) => {
+          return prev.map((element, index) => {
+            if (index === elements.length - 1) {
+              return {
+                ...element,
+                width: offsetX - element.offsetX,
+                height: offsetY - element.offsetY,
+              };
+            } else {
+              return element;
+            }
+          });
+        });
+      }
+    }
+  };
+
+  const handleMouseUp = () => {
+    socket.emit("addPath", { elements, history });
+    setIsDrawing(false);
+  };
+
+  return <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}></canvas>;
 };
 
 export default Board;
