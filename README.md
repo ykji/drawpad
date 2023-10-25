@@ -24,6 +24,6 @@ List the main features of your project.
 - Sync in real-time for all the clients.
 - User can download their sketch in PNG format.
 
-## Demo (Deployed link)
+## Demo
 
-https://drawpad-lovat.vercel.app
+Deployed link - https://drawpad-lovat.vercel.app
