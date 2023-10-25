@@ -136,6 +136,15 @@ const Board = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    if (!elements.length) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [elements]);
+
   const drawPath = (elements) => {
     const roughCanvas = rough.canvas(canvasRef.current);
 
