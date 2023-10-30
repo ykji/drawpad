@@ -142,6 +142,8 @@ const Board = () => {
 
     if (!elements.length) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
   }, [elements]);
 
@@ -164,10 +166,14 @@ const Board = () => {
   };
 
   useLayoutEffect(() => {
-    const roughCanvas = rough.canvas(canvasRef.current);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const roughCanvas = rough.canvas(canvas);
 
     if (elements.length && canvasRef.current) {
-      ctxRef.current?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     if (elements.length) {
