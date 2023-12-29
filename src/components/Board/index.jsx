@@ -116,8 +116,8 @@ const Board = () => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth * 3;
+    canvas.height = window.innerHeight * 3;
     const ctx = canvas.getContext("2d");
 
     ctxRef.current = ctx;
@@ -282,7 +282,7 @@ const Board = () => {
     setIsDrawing(false);
   };
 
-  return <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}></canvas>;
+  return <canvas style={{ overflow: "hidden" }} ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}></canvas>;
 };
 
 export default Board;
